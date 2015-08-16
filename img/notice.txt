@@ -1,0 +1,2 @@
+在读取是否是单色显示屏的时候用了BIOS保存的参数
+E:1 No CPUID support

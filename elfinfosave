@@ -1,0 +1,24 @@
+#!/usr/bin/python
+import os,sys
+def ords(str):
+	i = 0
+	lens = len(str)
+	ret = 0
+	while i != lens:
+		ret|=(ord(str[i])<<(i*8))
+		i+=1
+	return ret
+if len(sys.argv) != 3:
+	print "elfbin2exec [elf] [savefile]"
+	exit(-1)
+else:
+	f = open(sys.argv[2],'wb+')
+	fe = open(sys.argv[1],'rb')
+	fe.seek(0x18)
+	entry = fe.read(4)
+	print "Entry:0x%x"%(ords(entry))
+	#f.write(entry[0])
+	#f.write(entry[1])
+	#f.write(entry[2])
+	#f.write(entry[3])
+	f.write("0x%x"%ords(entry))
