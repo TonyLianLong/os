@@ -23,13 +23,13 @@ out 0x21,al;Master 8259A,OCW1
 mov	al,0b00000000;Enable interrupts of the slave 8259A
 out	0xA1,al;Slave 8259A,OCW1
 mov al,0x11
-out 0x20,al
+out 0x20,al;ICW1
 mov al,0x30
-out 0x21,al
+out 0x21,al;ICW2
 mov al,1<<2
-out 0x21,al
+out 0x21,al;ICW3
 mov al,1
-out 0x21,al
+out 0x21,al;ICW4
 mov al,0x11
 out 0xA0,al
 mov al,0x38

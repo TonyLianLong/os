@@ -12,7 +12,7 @@ panic:
 	mov	BYTE PTR ds:753667, 7
 	mov	BYTE PTR ds:753666, al
 #APP
-# 25 "main.c" 1
+# 28 "main.c" 1
 	MOV DX,[0x463];MOV AL,0x0F
 OUT DX,AL
 PUSH DX
@@ -26,7 +26,7 @@ MOV DX,0x3D5
 MOV AL,0x00
 OUT DX,AL
 # 0 "" 2
-# 41 "main.c" 1
+# 44 "main.c" 1
 	CLI
 HLT
 # 0 "" 2
@@ -119,7 +119,7 @@ update_cursor:
 	.cfi_startproc
 	mov	ax, WORD PTR cursor_offset[rip]
 #APP
-# 85 "main.c" 1
+# 88 "main.c" 1
 	PUSH AX
 		MOV DX,[0x463]
 		MOV AL,0x0F
@@ -148,23 +148,21 @@ print_hex:
 	push	rbp
 	.cfi_def_cfa_offset 16
 	.cfi_offset 6, -16
-	movabs	rbp, -3989547408
+	mov	rbp, rdi
 	push	rbx
 	.cfi_def_cfa_offset 24
 	.cfi_offset 3, -24
 	mov	ebx, 60
 .L25:
-	mov	rdi, rbp
+	mov	rax, rbp
 	mov	cl, bl
-	shr	rdi, cl
-	and	edi, 15
-	cmp	edi, 9
-	jg	.L22
-	add	edi, 48
-	jmp	.L27
-.L22:
-	add	edi, 87
-	movzx	edi, dil
+	shr	rax, cl
+	and	eax, 15
+	cmp	eax, 9
+	lea	edi, [rax+48]
+	jle	.L27
+	add	eax, 87
+	movzx	edi, al
 .L27:
 	sub	ebx, 4
 	call	print_char
@@ -186,45 +184,99 @@ print_hex:
 init_paging:
 .LFB5:
 	.cfi_startproc
-	mov	QWORD PTR PML4T[rip], 65536
-	mov	QWORD PTR PDPT[rip], 69632
-	xor	eax, eax
-	mov	QWORD PTR PDT[rip], 73728
-	mov	QWORD PTR PT[rip], 77824
-	mov	QWORD PTR ds:65536, 69635
-	mov	QWORD PTR ds:69632, 73731
-	mov	QWORD PTR ds:73728, 77827
+	cmp	QWORD PTR MaxRAMAddr[rip], 1073741823
+	ja	.L34
+	mov	QWORD PTR ds:1048576, 2142211
+	mov	edx, 262144
+	mov	esi, 2142208
 .L30:
-	mov	edx, eax
-	sal	edx, 12
-	or	edx, 3
-	movsx	rdx, edx
-	mov	QWORD PTR [77824+rax*8], rdx
+	lea	edi, [rdx-262144]
+	xor	eax, eax
+.L33:
+	lea	ecx, [rdi+rax]
+	lea	r8d, [rdx+rax]
 	inc	rax
+	sal	ecx, 21
+	sal	r8d, 3
+	or	cl, -93
 	cmp	rax, 512
+	mov	ecx, ecx
+	mov	QWORD PTR [r8d], rcx
+	jne	.L33
+	lea	eax, [3+rdx*8]
+	add	rsi, 8
+	add	edx, 512
+	mov	QWORD PTR [rsi-8], rax
+	cmp	rsi, 2142288
 	jne	.L30
-	mov	eax, 65536
 #APP
-# 139 "main.c" 1
-	MOV CR3,RAX
+# 143 "main.c" 1
+	NOP
+# 0 "" 2
+#NO_APP
+	mov	eax, 1048576
+#APP
+# 144 "main.c" 1
+	MOV CR3,rax
+# 0 "" 2
+# 145 "main.c" 1
+	HLT
 # 0 "" 2
 #NO_APP
 	xor	eax, eax
 	ret
+.L34:
+	or	eax, -1
+	ret
 	.cfi_endproc
 .LFE5:
 	.size	init_paging, .-init_paging
+	.globl	init_interrupt
+	.type	init_interrupt, @function
+init_interrupt:
+.LFB6:
+	.cfi_startproc
+#APP
+# 149 "main.c" 1
+	mov al,0b00000000#启动8259的所有中断
+out 0x21,al#Master 8259A,OCW1
+out	0xA1,al#Slave 8259A,OCW1
+mov al,0x11
+out 0x20,al#开始
+mov al,0x20#偏移
+out 0x21,al#ICW2
+mov al,1<<2
+out 0x21,al#ICW3
+mov al,1
+out 0x21,al#ICW4
+mov al,0x11
+out 0xA0,al
+mov al,0x28
+out 0xA1,al
+mov al,1<<2
+out 0xA1,al
+mov al,1
+out 0xA1,al
+
+# 0 "" 2
+#NO_APP
+	ret
+	.cfi_endproc
+.LFE6:
+	.size	init_interrupt, .-init_interrupt
 	.section	.text.startup,"ax",@progbits
 	.globl	main
 	.type	main, @function
 main:
-.LFB6:
+.LFB7:
 	.cfi_startproc
 	xor	eax, eax
 	mov	WORD PTR cursor_offset[rip], 0
 	call	get_RAM_size
 	xor	eax, eax
 	call	init_paging
+	xor	eax, eax
+	call	init_interrupt
 	mov	edi, 65
 	call	print_char
 	mov	rdi, QWORD PTR RAMlength[rip]
@@ -234,20 +286,14 @@ main:
 	call	print_char
 	xor	eax, eax
 	call	update_cursor
-	mov	edi, 1
-	call	print_hex
 	xor	eax, eax
 	ret
 	.cfi_endproc
-.LFE6:
+.LFE7:
 	.size	main, .-main
 	.comm	cursor_offset,2,2
 	.comm	MaxRAMAddr,8,8
 	.comm	RAMlength,8,8
 	.comm	RAMbase,8,8
-	.comm	PT,8,8
-	.comm	PDT,8,8
-	.comm	PDPT,8,8
-	.comm	PML4T,8,8
 	.ident	"GCC: (Ubuntu 4.8.2-19ubuntu1) 4.8.2"
 	.section	.note.GNU-stack,"",@progbits

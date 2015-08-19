@@ -6,6 +6,7 @@ SECTIONS
     {
         _code = .;
         *(.text)
+		*(.text.startup)
         *(.rodata*)
     }
    .data : AT(ADDR(.text)+SIZEOF(.text))

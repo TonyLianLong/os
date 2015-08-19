@@ -3,14 +3,17 @@
 #define SCREEN_MAX_CHAR 80*25 //80*25 是屏幕上显示字符的最大个数
 #define move_cursor 1//在输出完字符后移动光标 这个可以改成变量
 #pragma pack(1)
-volatile uint64_t *PML4T;
-uint64_t *PDPT;
-uint64_t *PDT;
-uint64_t *PT;
+#define PAGE_BASE 0x200000
+#define PML4T (uint64_t *)0x100000
 uint64_t RAMbase;
 uint64_t RAMlength;
 uint64_t MaxRAMAddr;
 uint16_t cursor_offset;
+struct mem_table {
+	uint64_t start;
+	uint64_t length;
+};
+typedef struct mem_table mem_table_t;
 struct ramsize_struct {
 	uint64_t base;
 	uint64_t length;
@@ -99,9 +102,9 @@ void update_cursor(){
 		:
 		:"a"(cursor_offset)
 		:"%dx");
+	
 }
 void print_hex(uint64_t hex){
-	hex = 0xFFFFFFFF12345670;
 	int n;
 	for(int i = 15;i >= 0;i--){//i不可以用无符号整型 i的初始值是hex的长度-1
 		n = (hex>>(i*4))&0xF;
@@ -115,37 +118,58 @@ void print_hex(uint64_t hex){
 }
 int init_paging(){
 	//63到47位的内存需要一样（都是0或都是1），所以不用47位和以上的位来进行寻址
-	int pt_num;
-	PML4T = (uint64_t *)0x10000;
-	PDPT = (uint64_t *)0x11000;
-	PDT = (uint64_t *)0x12000;
-	PT = (uint64_t *)0x13000;
-	if(RAM_size  < 1*1024*1024*1024){
-		*PML4T = 0x0000000000011003;
-		*PDPT = 0x0000000000012003;
-		*PDT = 0x0000000000013003;
-		pt_num = 1;//(MaxRAMAddr+1)/(4*1024);
+	unsigned int PDPT_number;
+	if(MaxRAMAddr  < 1*1024*1024*1024){
+		PDPT_number = 1;
 	}else{
-		//还不用
-		panic("1:Memory is too large(>1GB).");
-		return -1;
-	}
-	for(;pt_num>0;pt_num--){
-		for(int i = 0;i<512;i++){
-			*(PT+i) = (i<<12)|0x003;
-			//指针是按个数，而不是按字节来运算
+		if(MaxRAMAddr%(1*1024*1024*1024) == 0){
+			PDPT_number = MaxRAMAddr/(1*1024*1024*1024);
+		}else{
+			PDPT_number = MaxRAMAddr/(1*1024*1024*1024)+1;
 		}
+		//panic("1:Memory is too large(>1GB).");
 	}
-	asm("MOV CR3,RAX"::"a"(PML4T):);//这是按INTEL格式的内联汇编来写的
+	*PML4T = (PAGE_BASE+(PDPT_number+1)*512*8)|0x003;
+	for(unsigned int PDPT_entry = 0;PDPT_entry < PDPT_number;PDPT_entry++){
+		for(unsigned int PDT_entry = 0;PDT_entry < 512;PDT_entry++){
+			*(uint64_t *)((uint64_t)(PAGE_BASE+PDPT_entry*512*8+PDT_entry*8)) = (uint64_t)(((PDPT_entry*512+PDT_entry)<<21)|0x0A3);
+			//*(uint64_t *)((uint64_t)(0x120000+(a<<12<<9)+((a+b)<<12))) = (0x120000+(a<<12<<9)+((a+b)<<12)+0x1000)|0x003;
+		}
+		*(uint64_t *)((uint64_t)(PAGE_BASE+(PDPT_number+1)*512*8+PDPT_entry*8)) = (uint64_t)((PAGE_BASE+PDPT_entry*512*8)|0x003);
+	}
+	asm("MOV CR3,%0"::"r"(PML4T):);//这是按INTEL格式的内联汇编来写的
 	return 0;
+}
+void init_interrupt(){
+	asm("mov al,0b00000000#启动8259的所有中断\n\
+out 0x21,al#Master 8259A,OCW1\n\
+out	0xA1,al#Slave 8259A,OCW1\n\
+mov al,0x11\n\
+out 0x20,al#开始\n\
+mov al,0x20#偏移\n\
+out 0x21,al#ICW2\n\
+mov al,1<<2\n\
+out 0x21,al#ICW3\n\
+mov al,1\n\
+out 0x21,al#ICW4\n\
+mov al,0x11\n\
+out 0xA0,al\n\
+mov al,0x28\n\
+out 0xA1,al\n\
+mov al,1<<2\n\
+out 0xA1,al\n\
+mov al,1\n\
+out 0xA1,al\n\
+":::"%al");
+	
 }
 int main(){
 	cursor_offset = 0;
 	get_RAM_size();
 	init_paging();
+	init_interrupt();
 	print_char('A');
 	print_char((uint8_t)('0'+RAMlength/1024/1024/4));
 	update_cursor();
-print_hex(1);
 return 0;
 }

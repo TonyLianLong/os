@@ -6,7 +6,7 @@ all:
 	gcc -S main.c -o main.asm $(CFLAGS) -Iinclude -fno-builtin -nostdlib
 	nasm asm.asm -o asm.o -f elf64
 	as main.asm -o main.o --64
-	ld $(LINKFILE) -o main.elf $(LINKFLAGS) -e entry -melf_x86_64 -T link.ld #-Os 
+	ld $(LINKFILE) -o main.elf $(LINKFLAGS) -e entry -melf_x86_64 -T link.ld -Os 
 	objcopy -S -O binary main.elf main
 	./elfinfosave main.elf ./img/elfinfo.txt
 	make -C img

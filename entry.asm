@@ -31,17 +31,14 @@ MOV EDI,0x2000
 MOV DWORD [EDI],0x00003003      ; Set the uint32_t at the destination index to 0x3003.
 MOV DWORD [EDI+4],0x00000000
 MOV EDI,0x3000
-MOV DWORD [EDI],0x00004003      ; Set the uint32_t at the destination index to 0x4003.
-MOV DWORD [EDI+4],0x00000000
-ADD EDI, 0x1000              ; Add 0x1000 to the destination index.
-MOV EBX, 0x00000003          ; Set the B-register to 0x00000003.
+MOV EBX, 0x000000A3          ; Set the B-register to 0x000000A3.
 MOV ECX, 512                 ; Set the C-register to 512.
-SetPT:
+SetPD:
 MOV DWORD [EDI],EBX        ; Set the uint32_t at the destination index to the B-register.
 MOV DWORD [EDI+4],0x00000000
 ADD EDI,8
-ADD EBX,0x1000              ; Add 0x1000 to the B-register.
-LOOP SetPT           ; Set the next entry.
+ADD EBX,1<<21              ; Add 0x1000 to the B-register.
+LOOP SetPD           ; Set the next entry.
 MOV EAX,CR4                 ; Set the A-register to control register 4.
 OR EAX,1<<5               ; Set the PAE-bit, which is the 6th bit (bit 5).
 MOV CR4,EAX                 ; Set control register 4 to the A-register.
